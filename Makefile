@@ -1,5 +1,5 @@
 obj-m := mwpk.o
-mwpk-y := mwp.o src/stack.o src/ctype.o
+mwpk-y := mwp.o src/mem.o src/ctype.o
 ERRNO = -Wno-error=unused-function
 EXTRA_CFLAGS += -I$(M)/include -Werror -Wall -O2 $(ERRNO) -c -D__KERNEL__ -DMODULE
 

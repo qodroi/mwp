@@ -1,5 +1,10 @@
-#ifndef _DATA_H
-#define _DATA_H
+/**
+ * Copyright 2022 Roi L.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+#ifndef _MEM_H
+#define _MEM_H
 
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -12,4 +17,4 @@ size_t vp_ow(struct mm_struct *mm, u64 dest_addr, const char *dest, const char *
 void incusage(void);
 void incrdwr(void);
 
-#endif /* _DATA_H */
+#endif /* _MEM_H */

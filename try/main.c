@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define BUF_SIZE    (100)
+#define BUF_SIZE    100
 
 int main(int argc, char **argv)
 {	

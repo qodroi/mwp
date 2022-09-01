@@ -1,3 +1,8 @@
+/**
+ * Copyright 2022 Roi L.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <linux/slab.h>
 #include <linux/string.h>
 

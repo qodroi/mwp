@@ -1,5 +1,7 @@
-/* Header file mainly used for string operations that are not \
-    exported to the linux kernel (or just LKM) */
+/**
+ * Copyright 2022 Roi L.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 
 #ifndef _CTYPE_H
 #define _CTYPE_H

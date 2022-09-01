@@ -1,3 +1,8 @@
+/**
+ * Copyright 2022 Roi L.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <linux/kernel.h>
 #include <linux/swap.h>
 
@@ -23,13 +28,10 @@ vp_ow(struct mm_struct *mm, u64 dest_addr, const char *dest, const char *src)
     if (unlikely(ret <= 0))
         goto unlock_mmap;
 
-    kvaddr = kmap(p); /* Map the page(s), and return a kernel space virtual address of the mapping */
+    kvaddr = kmap(p); /* Map the page, and return a kernel-space virtual address of the mapping */
     if (kvaddr == NULL)
         goto unlock_mmap_put;
 
-    /* in the future we must be able to find the exact position without \
-        looping over MWP_BLOCK_SIZE addresses, right now we do that because it is difficult \
-            to find the right address */
     for (i = 0; i < MWP_BLOCK_SIZE; i++) 
     {
         if (strcmp((char *)kvaddr + i, src) == 0) 
@@ -47,7 +49,7 @@ vp_ow(struct mm_struct *mm, u64 dest_addr, const char *dest, const char *src)
     kunmap(p);
 
 unlock_mmap_put:
-	put_page(p); /* Return the page */
+	put_page(p); /* Put back the page */
 
 unlock_mmap:
 	mmap_read_unlock(mm);
@@ -67,7 +69,7 @@ vp_fetch_addr(struct mm_struct *mm, struct task_struct *ts, struct vp_sections_s
     /* Loop until the desired string is found */
     while (fetched == 0) {
         if (i == MWP_BLOCK_SIZE)
-            break; /* We reached the limit, can't loop anymore */
+            break; /* We reached the limit, break */
         access_process_vm(ts, vps.args.start_args + i, kvbuf, BUF_SIZE,
 								FOLL_FORCE);
         i++;

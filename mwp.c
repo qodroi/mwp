@@ -1,3 +1,8 @@
+/**
+ * Copyright 2022 Roi L.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/pid.h>
@@ -15,8 +20,8 @@ static int PID;
 module_param(PID, int, 0);
 MODULE_PARM_DESC(PID, "The ID of the process you want to mess with.");
 
-/* Set up the unique global struct for use */
-inline void init_pinfo_struct(void)
+/* Set up the unique global struct */
+inline void __init init_pinfo_struct(void)
 {
     spin_lock_init(&pinfo.pwlock);
     pinfo.pid = PID;
@@ -37,20 +42,18 @@ ssize_t mwp_p_read(struct file *file, char __user *buf, size_t len, loff_t *offs
     int ret = 0;
     char buffer[BUF_SIZE];
 
-    snprintf(buffer, BUF_SIZE, "PID: %d: Usage count: %d, I/O Operations: %d\n",
+    snprintf(buffer, BUF_SIZE, "PID: %u: Usage count: %u, I/O Operations: %u\n",
                 pinfo.pid, pinfo.usage_count, pinfo.nrdwr);
 
-    /* Not a really good check; the number of bytes read is returned, or negative for error \ 
-        As you see I'd rather check only for errors */
-    if ((ret = simple_read_from_buffer(buf, len, offset, buffer, strlen(buffer) + 1)) < 0)
+    /* FIXME: Not a really good check */
+    if ((ret = simple_read_from_buffer(buf, len, offset, buffer, strlen(buffer))) < 0)
         return -EAGAIN;
+    if (ret > 0)
+        incrdwr();
 
-    incrdwr();   
     return ret;
 }
 
-/* Write dest to src, the user should echo to the proc entry following this pattern \
-    e.g. echo "./main ./nomain" > /proc/proc_entry */
 ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_t *offset)
 {
     u64 vkaddr;
@@ -65,18 +68,14 @@ ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_
         goto out_free_err;
 
     /* Ugly and a nice way to extract both of the arguments \ 
-        one after one when each one is seperated with whitespace */
-    while ((src = strtok_km(input, " "))) {
-        dest = strtok_km(NULL, " "); break; }
-    kfree(input); /* We don't need the allocate buffer anymore */
+        one after one where each one is seperated with a whitespace */
+    while ((src = strtok_km(input, "\r\t\n "))) {
+        dest = strtok_km(NULL, "\r\t\n "); break; }
+    kfree(input); /* We don't need the allocated buffer anymore */
 
-    /* Verify we extraced successfully */
+    /* Make sure we successfully extraced */
     if (src == NULL || dest == NULL)
         return -EINVAL;
-
-    /* Trim the possible whitespaces */
-    src = strtok_km(src, "\r\t\n ");
-    dest = strtok_km(dest, "\r\t\n ");
 
     /* Fetch the address of src */
     if ((vkaddr = vp_fetch_addr(pid_mm, pid_task_struct, vps, src)) == 0)
@@ -86,21 +85,13 @@ ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_
     if (vp_ow(pid_mm, vkaddr, dest, src) == 0)
         return -EFAULT;
 
-    /* Finally increment RD/WR operations counter and return (: */
+    /* Finally increment R/W counter and return (: */
     incrdwr();
     return len;
 
 out_free_err:
     kfree(input);
     return -EFAULT;
-}
-
-/* This just verifes that the user didn't output an invalid PID */
-static inline int verify_module_args(void)
-{
-    if (PID <= 0 || PID > PID_MAX_LIMIT)
-        return 1;
-    return 0;
 }
 
 /* Copy the user-space program addresses into our struct's fields */
@@ -114,10 +105,8 @@ static void vp_copy(struct mm_struct *mm, struct vp_sections_struct *vps)
 
 static int __init init_mod(void)
 {
-    if (verify_module_args())
-        return -EINVAL;
     if (!(pid_task_struct = pid_task(find_vpid(PID), PIDTYPE_PID)))
-        return -EAGAIN; /* Cannot find/attach process information by ID */
+        return -EINVAL; /* Cannot find/attach process information by ID */
     if ((pde = proc_mkdir("mwp", NULL)) == NULL)
         return -EFAULT;
     if (proc_create("mwpk", 0, pde, &mwp_proc_ops) == NULL)

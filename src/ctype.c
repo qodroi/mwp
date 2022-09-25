@@ -53,7 +53,6 @@ char *strtok_km(char *str, char *delim)
     *last = '\0';
     last++;
 
-out:
     kfree(deli_dict);
     return str;
 }

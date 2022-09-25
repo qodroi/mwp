@@ -34,7 +34,7 @@ char *strtok_km(char *str, char *delim)
     if (str) {
         last = kmalloc(strlen(str) + 1, GFP_KERNEL);
         if (!last)
-            return NULL;
+            kfree(deli_dict);
         to_free = last;
         strcpy(last, str); }
 
@@ -53,6 +53,7 @@ char *strtok_km(char *str, char *delim)
     *last = '\0';
     last++;
 
+out:
     kfree(deli_dict);
     return str;
 }

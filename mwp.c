@@ -57,15 +57,16 @@ ssize_t mwp_p_read(struct file *file, char __user *buf, size_t len, loff_t *offs
 ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_t *offset)
 {
     u64 vkaddr;
-    char *input;
+    char *input = NULL;
     char *dest = NULL, *src = NULL;
 
     /* Allocate enough memory for the user-length buffer */
     if ((input = kmalloc(len, GFP_KERNEL)) == NULL)
-        return -EFAULT;
+        goto out_err;
+
     /* Copy user-space buffer to our local kernel one */
     if (copy_from_user(input, buf, len))
-        goto out_free_err;
+        goto out_err;
 
     /* Ugly and a nice way to extract both of the arguments \ 
         one after one where each one is seperated with a whitespace */
@@ -89,7 +90,7 @@ ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_
     incrdwr();
     return len;
 
-out_free_err:
+out_err:
     kfree(input);
     return -EFAULT;
 }

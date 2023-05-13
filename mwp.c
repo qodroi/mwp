@@ -3,62 +3,102 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include <linux/init.h>
+#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
+
+#include <linux/container_of.h>
+#include <linux/proc_fs.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/init.h>
+#include <linux/slab.h>
 #include <linux/pid.h>
 
 #include "mwp.h"
+#include "io.h"
 
-struct task_struct *pid_task_struct;
-struct vp_sections_struct vps;
-struct proc_dir_entry *pde; /* Proc directory */
-struct mm_struct *pid_mm;
-struct process_info pinfo;
+/* A user provided input through insmod */
+static unsigned int pid;
+module_param(pid, uint, 0);
 
-static int PID;
+/* Global structure defined in external header. */
+struct process_info p_info;
 
-module_param(PID, int, 0);
-MODULE_PARM_DESC(PID, "The ID of the process you want to mess with.");
+/*
+ * The argument to @inc (@which) must be either @nrdwr or @usage
+*/
+#ifdef DEBUG_MODULE
+    #define inc(which) do {                             \
+        write_lock(&p_info.mwp_rwlock);                 \
+        (p_info).which++;                               \
+        write_unlock(&p_info.mwp_rwlock); } while (0)
+#else /* NOP */
+    #define inc(which) do { } while (0)
+#endif /* DEBUG_MODULE */
 
-/* Set up the unique global struct */
-inline void __init init_pinfo_struct(void)
+/* Initalize all fields of our global process_info struct @p_info */
+static int __init
+initalize_p_info(struct task_struct *tsk)
 {
-    spin_lock_init(&pinfo.pwlock);
-    pinfo.pid = PID;
-    pinfo.usage_count = 0;
-    pinfo.nrdwr = 0;
+    if (!tsk)
+        return -EINVAL;
+#ifdef DEBUG_MODULE
+    rwlock_init(&p_info.mwp_rwlock);
+    p_info.usage = 0; p_info.nrdwr = 0;
+#endif
+    p_info.p_tsk = tsk;
+    p_info.p_mm = p_info.p_tsk->mm;
+
+    /*
+     * @arg_lock is a builtin @mm_struct lock that protects the fields below
+    */
+    spin_lock(&p_info.p_mm->arg_lock);
+    p_info.p_vps.start_args = p_info.p_mm->arg_start;
+    p_info.p_vps.end_args = p_info.p_mm->arg_end;
+    spin_unlock(&p_info.p_mm->arg_lock);
+
+    return 0;
 }
 
 /* Simply increment the usage count, nothing else */
-int mwp_p_open(struct inode *inode, struct file *file)
+static int mwp_open(struct inode *inode, struct file *file)
 {
-    incusage();
+    inc(usage);
     return 0;
 }
 
 /* Echo out process information stored in struct process_info */
-ssize_t mwp_p_read(struct file *file, char __user *buf, size_t len, loff_t *offset)
+static ssize_t
+mwp_read(struct file *file, char __user *buf, size_t len, loff_t *offset)
 {
     int ret = 0;
     char buffer[BUF_SIZE];
 
+#ifdef DEBUG_MODULE
+    read_lock(&p_info.mwp_rwlock);
     snprintf(buffer, BUF_SIZE, "PID: %u: Usage count: %u, I/O Operations: %u\n",
-                pinfo.pid, pinfo.usage_count, pinfo.nrdwr);
+                pid, p_info.usage, p_info.nrdwr);
+    read_unlock(&p_info.mwp_rwlock);
+#endif
 
-    /* FIXME: Not a really good check */
+    /* FIXME: Not a really good check
+     * @simple_read_from_buffer returns the number of bytes,
+     * yet this if statement only checks for errors. It's not that important rn.
+     */
     if ((ret = simple_read_from_buffer(buf, len, offset, buffer, strlen(buffer))) < 0)
-        return -EAGAIN;
-    if (ret > 0)
-        incrdwr();
+        return ret;
 
+    /* 0 Bytes may have been read */
+    if (ret > 0)
+        inc(nrdwr);
     return ret;
 }
 
-ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_t *offset)
+static ssize_t
+mwp_write(struct file *file, const char __user *buf, size_t len, loff_t *offset)
 {
     u64 vkaddr;
-    char *input = NULL;
-    char *dest = NULL, *src = NULL;
+    char *input;
+    char *dest, *src;
 
     /* Allocate enough memory for the user-length buffer */
     if ((input = kmalloc(len, GFP_KERNEL)) == NULL)
@@ -68,26 +108,23 @@ ssize_t mwp_p_write(struct file *file, const char __user *buf, size_t len, loff_
     if (copy_from_user(input, buf, len))
         goto out_err;
 
-    /* Ugly and a nice way to extract both of the arguments \ 
+    /* Ugly and a nice way to extract both of the arguments \
         one after one where each one is seperated with a whitespace */
-    while ((src = strtok_km(input, "\r\t\n "))) {
-        dest = strtok_km(NULL, "\r\t\n "); break; }
+    while ((src = strsep(&input, "\r\t\n "))) {
+        dest = strsep(&input, "\r\t\n "); break; }
     kfree(input); /* We don't need the allocated buffer anymore */
 
     /* Make sure we successfully extraced */
     if (src == NULL || dest == NULL)
         return -EINVAL;
 
-    /* Fetch the address of src */
-    if ((vkaddr = vp_fetch_addr(pid_mm, pid_task_struct, vps, src)) == 0)
+    /* Fetch the address of src and execute the memory writing */
+    if ((vkaddr = vp_fetch_addr(src)) == 0)
         return -EAGAIN;
-
-    /* Perform writing of dest to src */
-    if (vp_ow(pid_mm, vkaddr, dest, src) == 0)
+    if (vp_ow(vkaddr, dest, src) == 0)
         return -EFAULT;
 
-    /* Finally increment R/W counter and return (: */
-    incrdwr();
+    inc(nrdwr);
     return len;
 
 out_err:
@@ -95,39 +132,37 @@ out_err:
     return -EFAULT;
 }
 
-/* Copy the user-space program addresses into our struct's fields */
-static void vp_copy(struct mm_struct *mm, struct vp_sections_struct *vps)
-{
-    spin_lock(&mm->arg_lock);
-    vps->args.start_args = mm->arg_start;
-    vps->args.end_args = mm->arg_end;
-    spin_unlock(&mm->arg_lock);
-}
+static const struct proc_ops mwp_proc_ops = {
+    .proc_open      = mwp_open,
+    .proc_write     = mwp_write,
+    .proc_read      = mwp_read
+};
 
-static int __init init_mod(void)
+static int __init mwp_init_mod(void)
 {
-    if (!(pid_task_struct = pid_task(find_vpid(PID), PIDTYPE_PID)))
-        return -EINVAL; /* Cannot find/attach process information by ID */
-    if ((pde = proc_mkdir("mwp", NULL)) == NULL)
+    static struct task_struct *tsk;
+
+    if (!(tsk = pid_task(find_vpid(pid), PIDTYPE_PID)))
+        return -ESRCH; /* No such process */
+    if (!proc_create("p_mwpk", S_IWUSR | S_IRUSR, NULL, &mwp_proc_ops))
         return -EFAULT;
-    if (proc_create("mwpk", 0, pde, &mwp_proc_ops) == NULL)
-        return -EFAULT;
-    
-    init_pinfo_struct();
-    pid_mm = pid_task_struct->mm;
-    vp_copy(pid_mm, &vps);
+
+    initalize_p_info(tsk);
+
+#ifdef DEBUG_MODULE
+    pr_info("Registered successfully, see the /proc/p_mwpk entry.\n");
+#endif
 
     return 0;
 }
 
-static void __exit exit_mod(void) 
+static void __exit mwp_exit_mod(void)
 {
-    proc_remove(pde);
+    remove_proc_entry("p_mwpk", NULL);
 }
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Roi L");
-MODULE_VERSION("1.0.2");
+MODULE_VERSION("1.1.2");
 
-module_init(init_mod);
-module_exit(exit_mod);
+module_init(mwp_init_mod);
+module_exit(mwp_exit_mod);

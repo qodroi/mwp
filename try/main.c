@@ -1,3 +1,10 @@
+/**
+ * Copyright 2022 Roi L.
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * gcc -Wall -o main main.c
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -6,11 +13,11 @@
 #define BUF_SIZE    100
 
 int main(int argc, char **argv)
-{	
+{
 	int i;
 	char tmp[BUF_SIZE];
 	pid_t pid = getpid();
-	
+
     strncpy(tmp, argv[0], BUF_SIZE);
 	while (strcmp(argv[0], tmp) == 0)
 	{
@@ -19,7 +26,7 @@ int main(int argc, char **argv)
 			printf("args: %s-%p\n", argv[i], argv[i]);
 		sleep(1);
 	}
-    
+
 	printf("You're allowed to enter!\n");
 	return 0;
 }

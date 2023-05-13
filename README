@@ -1,11 +1,17 @@
 Mess with Process
 ========
-This simple module will overwrite memory of any C program process. This was tested on kernel version 5.13.0-52-generic, x86_64.
+This simple module will overwrite memory of any C program process.
+This was tested on kernel version x86_64 6.12
 
-mwp stands for "mess with process", we only support writing to the arguments section of the process, that is, 'argv', but with the huge loop we have when we loop through the memory, it is possible for you to also overwrite envp (Environment variables).
+mwp stands for "mess with process", we only support writing to the arguments section of the process, that is, 'argv', but with the huge loop we have when we loop through the memory, it is possible for you to also overwrite 'envp' (Environment variables).
 
-You have to pass the PID of the process you want to write to when insmod'ing the module, eg. insmod mwp.ko PID=x
+Maybe in the future I will make it possible to even overwrite the code section, and add an option to insert a jmp
+and other cool instructions.
 
-Let's say you want to overwrite argv[0], that is, ./main, you simply do echo "./main ./nomain" > /proc/mwp/mwpk. This will overwrite the memory region or argv[0] with ./nomain. You can test it with by using the _main.c_ file that is in "try" directory. (:
+You have to pass the PID of the process you want to write to when insmod'ing the module, eg. insmod mwpk.ko pid=x
+You can also have information logging by setting the debug bit `make debug=1`, with that everytime you read the proc entry, some useful information will be dumped for you.
 
-No features will be implemented, at least not soon. Enjoy what you have. I've learned a lot.
+Let's say you want to overwrite argv[0], e.g. ./main, you simply do echo "./main ./nomain" > /proc/p_mwpk. This will overwrite ./main with ./nomain. You can test it by trying the _main.c_ file that is inside the "try" directory.
+
+===
+I've learned a lot during the project, enjoy!

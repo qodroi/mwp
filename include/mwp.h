@@ -18,8 +18,8 @@ struct process_info {
 #ifdef DEBUG_MODULE
     /* read-write lock (rwlock) to protect the shared fields below */
     rwlock_t mwp_rwlock;
-    volatile unsigned int usage, /* Number of times the proc entry has been opened */
-                          nrdwr; /* N times the user read/wrote to the process memory space */
+    unsigned int usage, /* Number of times the proc entry has been opened */
+                 nrdwr; /* N times the user read/wrote to the process memory space */
 #endif
     struct vp_sections_struct p_vps;
     struct task_struct *p_tsk;

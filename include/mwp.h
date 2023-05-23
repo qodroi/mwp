@@ -8,12 +8,13 @@
 
 /* A structure to hold various process memory sections of our target process */
 struct vp_sections_struct {
-    u64 start_args;
-    u64 end_args;
+    u64 start_args,
+        end_args;
 };
 
-/* A struct that will help us identify the process, it will hold
- * useful information */
+/* A struct that will help us identify the process and some of its
+ * task_struct fields
+ */
 struct process_info {
 #ifdef DEBUG_MODULE
     /* read-write lock (rwlock) to protect the shared fields below */

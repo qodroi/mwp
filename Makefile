@@ -1,5 +1,5 @@
 obj-m := mwpk.o
-mwpk-y := mwp.o src/io.o
+mwpk-y := mwp.o
 ccflags-y += -I$(M)/include -Werror -Wall -O2 -c -D__KERNEL__ -DMODULE
 debug = 0
 

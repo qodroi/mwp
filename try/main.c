@@ -10,7 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define BUF_SIZE    100
+#define BUF_SIZE    56
 
 int main(int argc, char **argv)
 {
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 	{
 		printf("PID: %d\n", pid);
 		for (i = 0; i < argc; i++)
-			printf("args: %s-%p\n", argv[i], argv[i]);
+			printf("args: %s - %p\n", argv[i], argv[i]);
 		sleep(1);
 	}
 

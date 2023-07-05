@@ -2,9 +2,9 @@ Mess with Process
 ========
 This simple module will overwrite memory of any C program process.
 This was part of my kernel mode dev journey.
-Although the module is quite simple, it tought me a lot of memory management, espcially kernel memory.
 
-You have to pass the PID of the process you want to write to when insmod'ing the module, eg. insmod mwpk.ko pid=x
-You can also have kernel logging by setting the debug bit during build `make debug=1`
+Although the module is quite simple, it taught me a lot about memory management, especially kernel memory.
+
+You have to pass the PID of the process you want to write to when insmod'ing the module, eg. insmod mwpk.ko pid=x. You can also have kernel logging by setting the debug bit during build make debug=1
 
 Let's say you want to overwrite argv[0], e.g. ./main, you simply do echo "./main ./nomain" > /proc/mwpk.

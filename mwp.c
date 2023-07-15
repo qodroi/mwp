@@ -69,7 +69,7 @@ static int do_write_process_argv(const char *src, const char *dest)
     mmap_write_unlock(p_mm);
 
     /* FIXME: Can kmap fail? */
-    kvbuffer = kmap(p);
+    kvbuffer = kmap_local_page(p);
 
     /* I believe we might run into problems here - we only take 1 page
      * while @length _could_ be larger than page size, and we could overwrite
@@ -86,7 +86,7 @@ static int do_write_process_argv(const char *src, const char *dest)
         }
     }
 
-    kunmap(p);
+    kunmap_local(kvbuffer);
     put_page(p);
 
 	return 0;
